@@ -35,12 +35,12 @@ def get_project_paths():
     # 模型路径
     model_path = os.path.join(base_dir, 'last.pt')
     if not os.path.exists(model_path):
-        model_path = r'E:\F\POT\last.pt'  # 备用路径
+        model_path = r'E:\F\Winxin_DJ\last.pt'  # 备用路径
     
     # yolov5路径
     yolo_path = os.path.join(base_dir, 'yolov5')
     if not os.path.exists(yolo_path):
-        yolo_path = r'E:\F\POT\yolov5'  # 备用路径
+        yolo_path = r'E:\F\Winxin_DJ\yolov5'  # 备用路径
     
     if yolo_path not in sys.path:
         sys.path.append(yolo_path)

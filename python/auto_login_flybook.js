@@ -3,8 +3,8 @@ const fs = require('fs');
 const path = require('path');
 
 // cookies保存目录
-const COOKIES_DIR = 'C:\\Users\\QIANG\\Desktop\\POT\\cookies';
-const CUSTOM_SCREENSHOT_DIR = 'C:\\Users\\QIANG\\Desktop\\POT\\screenshots'; // 注意双反斜杠或使用 path.join
+const COOKIES_DIR = 'C:\\Users\\QIANG\\Desktop\\Winxin_DJ\\cookies';
+const CUSTOM_SCREENSHOT_DIR = 'C:\\Users\\QIANG\\Desktop\\Winxin_DJ\\screenshots'; // 注意双反斜杠或使用 path.join
 
 // 创建目录如果不存在
 if (!fs.existsSync(CUSTOM_SCREENSHOT_DIR)) {
