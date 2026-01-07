@@ -31,20 +31,14 @@ def lazy_import():
 # 动态路径处理
 def get_project_paths():
     base_dir = os.path.dirname(os.path.abspath(__file__))
+    # 注意：如果工具文件在子目录（如utils/），要取上层目录（和New_modeltest.py同级）：
+    # base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     
-    # 模型路径
     model_path = os.path.join(base_dir, 'last.pt')
-    if not os.path.exists(model_path):
-        model_path = r'E:\F\POT\last.pt'  # 备用路径
-    
-    # yolov5路径
     yolo_path = os.path.join(base_dir, 'yolov5')
-    if not os.path.exists(yolo_path):
-        yolo_path = r'E:\F\POT\yolov5'  # 备用路径
     
     if yolo_path not in sys.path:
         sys.path.append(yolo_path)
-        
     return model_path, yolo_path
 
 # ---------------------- URL去重相关代码 ----------------------
@@ -189,7 +183,31 @@ class YOLOv5Detector:
     def detect(self, frame, img_size=None):
         if img_size is None:
             img_size = self.img_size
-            
+
+        #更新帧属性————————————————————————————20260106
+        if not hasattr(self, 'prev_frame_hash'):
+            self.prev_frame_hash = None
+        if not hasattr(self, 'same_frame_count'):
+            self.same_frame_count = 0
+            # 计算当前帧哈希值
+        current_hash = hash(frame.tobytes())
+        # 核心：更新连续相同帧计数器（操作实例属性self.same_frame_count）
+        if current_hash == self.prev_frame_hash:
+            self.same_frame_count += 1  # 正确累加（修复=+为+=）
+        else:
+            self.same_frame_count = 0   # 哈希不同，重置计数器
+            self.prev_frame_hash = current_hash  # 仅哈希不同时更新上一帧哈希
+
+        # 触发条件：连续10次相同则跳过（修复>10为>=10，匹配需求）
+        skip_threshold = 5
+        if self.same_frame_count >= skip_threshold:
+            return []  # 跳过检测，返回空结果
+
+        # 未触发跳过：更新上一帧哈希（仅非跳过场景更新）
+        # （注：哈希相同时不更新prev_frame_hash，保证计数器持续累加）
+        if self.same_frame_count == 0:
+            self.prev_frame_hash = current_hash
+        #更新帧属性————————————————————————————20260106    
         try:
             # 导入NMS函数
             from yolov5.utils.general import non_max_suppression
@@ -306,19 +324,26 @@ class AsyncCapture:
         self.thread = Thread(target=self._capture_loop, daemon=True)  # 使用daemon=True确保程序退出时线程自动关闭
         self.thread.start()
  
+    #优化异步捕获
     def _capture_loop(self):
         while self.running:
             try:
                 frame = self.capturer.grab_frame()
-                if frame is not None and self.queue.qsize() < 1:
-                    if not self.queue.full():
+                if frame is not None and not self.queue.full():
+                    try:
                         self.queue.put(frame, block=False)
+                    except:
+                        # 队列满了就丢弃旧帧，避免阻塞
+                        try:
+                            self.queue.get_nowait()  # 移除旧帧
+                            self.queue.put(frame, block=False)
+                        except:
+                            pass
                 else:
-                    # 短暂休眠避免CPU占用过高
-                    time.sleep(0.01)
+                    time.sleep(0.02)  # 增加休眠时间
             except Exception as e:
                 print(f"异步捕获错误: {e}")
-                time.sleep(0.1)  # 错误后短暂暂停
+                time.sleep(0.2)  # 错误后增加休眠
  
     def get_frame(self):
         try:
@@ -394,7 +419,7 @@ def main():
     
     # 初始化核心组件
     print("初始化组件...")
-    fps = 10# 从配置读取帧率设置
+    fps = 8# 从配置读取帧率设置
     frame_interval = 1.0 / fps  # 每帧理论间隔时间
     region = [10, 10, 450, 600]  # 屏幕捕获参数: left, top, width, height
     capturer = ScreenCapturer(region)

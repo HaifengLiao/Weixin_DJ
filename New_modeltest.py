@@ -31,20 +31,14 @@ def lazy_import():
 # 动态路径处理
 def get_project_paths():
     base_dir = os.path.dirname(os.path.abspath(__file__))
+    # 注意：如果工具文件在子目录（如utils/），要取上层目录（和New_modeltest.py同级）：
+    # base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     
-    # 模型路径
     model_path = os.path.join(base_dir, 'last.pt')
-    if not os.path.exists(model_path):
-        model_path = r'E:\F\Winxin_DJ\last.pt'  # 备用路径
-    
-    # yolov5路径
     yolo_path = os.path.join(base_dir, 'yolov5')
-    if not os.path.exists(yolo_path):
-        yolo_path = r'E:\F\Winxin_DJ\yolov5'  # 备用路径
     
     if yolo_path not in sys.path:
         sys.path.append(yolo_path)
-        
     return model_path, yolo_path
 
 # ---------------------- URL去重相关代码 ----------------------
@@ -191,6 +185,29 @@ class YOLOv5Detector:
     def detect(self, frame, img_size=None):
         if img_size is None:
             img_size = self.img_size
+
+        #更新帧属性————————————————————————————20260106
+        if not hasattr(self, 'prev_frame_hash'):
+            self.prev_frame_hash = None
+        if not hasattr(self, 'same_frame_count'):
+            self.same_frame_count = 0
+            # 计算当前帧哈希值
+        current_hash = hash(frame.tobytes())
+        # 核心：更新连续相同帧计数器（操作实例属性self.same_frame_count）
+        if current_hash == self.prev_frame_hash:
+            self.same_frame_count += 1  # 正确累加（修复=+为+=）
+        else:
+            self.same_frame_count = 0   # 哈希不同，重置计数器
+            self.prev_frame_hash = current_hash  # 仅哈希不同时更新上一帧哈希
+        # 触发条件：连续10次相同则跳过（修复>10为>=10，匹配需求）
+        skip_threshold = 10
+        if self.same_frame_count >= skip_threshold:
+            return []  # 跳过检测，返回空结果
+        # 未触发跳过：更新上一帧哈希（仅非跳过场景更新）
+        # （注：哈希相同时不更新prev_frame_hash，保证计数器持续累加）
+        if self.same_frame_count == 0:
+            self.prev_frame_hash = current_hash
+        #更新帧属性————————————————————————————20260106
             
         try:
             # 导入NMS函数
@@ -233,7 +250,7 @@ class YOLOv5Detector:
         return (center_x, center_y)
 
 class ClickController:
-    def __init__(self, cooldown=3.1, filter_window=5):
+    def __init__(self, cooldown=1, filter_window=5):
         self.last_click_time = time.time()
         self.cooldown = cooldown
         self.detection_queue = []  # 用于滤波的检测队列
@@ -393,7 +410,7 @@ def main():
     
     # 初始化核心组件
     print("初始化组件...")
-    fps = 15# 从配置读取帧率设置
+    fps = 8# 从配置读取帧率设置
     frame_interval = 1.0 / fps  # 每帧理论间隔时间
     region = [10, 10, 450, 600]  # 屏幕捕获参数: left, top, width, height
     region = [20, 20, 900, 1200]  # 屏幕捕获参数: left, top, width, height
@@ -606,3 +623,5 @@ if __name__ == "__main__":
         main()
     except Exception as e:
         print(f"程序异常: {e}")
+  git config --global user.email "you@example.com"
+  git config --global user.name "Your Name"
