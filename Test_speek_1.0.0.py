@@ -394,7 +394,7 @@ def main():
     
     # 初始化核心组件
     print("初始化组件...")
-    fps = 10# 从配置读取帧率设置
+    fps = 60# 从配置读取帧率设置
     frame_interval = 1.0 / fps  # 每帧理论间隔时间
     region = [10, 10, 450, 600]  # 屏幕捕获参数: left, top, width, height
     capturer = ScreenCapturer(region)

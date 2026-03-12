@@ -1,0 +1,15 @@
+# Ignore account configuration files containing cookies
+config/account_*.json
+
+# Ignore screenshots and other output
+screenshots/
+cookies/
+
+# Node modules and logs
+npm-debug.log*
+
+# Electron build artifacts
+dist/
+
+# Misc
+.DS_Store
