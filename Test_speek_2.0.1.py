@@ -7,7 +7,7 @@ import os
 import gc
 from datetime import datetime, timedelta
 import re
-from Flybook import send_message_to_feishu
+from Api_test import claim_coupons
 
 # 设置环境变量减少内存占用
 os.environ['CUDA_LAUNCH_BLOCKING'] = '0'
@@ -322,6 +322,11 @@ class AsyncCapture:
             return self.queue.get(block=False) if not self.queue.empty() else None
         except:
             return None
+        
+    # 新增：清空队列方法
+    def clear_queue(self):
+        while not self.queue.empty():
+            self.queue.get()  # 移除所有缓存帧
  
     def stop(self):
         self.running = False
@@ -419,19 +424,45 @@ def main():
         # 其他监控变量
         prev_time = time.time()
         memory_check_counter = 0
+        # 帧变化检测变量
+        prev_frame = None
+        Frame_wending = False
+        Frame_yuszhi = 0
         
         print("程序启动完成，开始运行...")
         
         while True:
             try:
-                # 获取最新帧（异步捕获）
+                # 获取帧# 获取最新帧（异步捕获）
+                time.sleep(0.081)  # 避免空转
                 frame = async_capturer.get_frame()
                 if frame is None:
                     time.sleep(0.001)  # 避免空转
                     continue
-                
+
                 frame = np.ascontiguousarray(frame, dtype=np.uint8)
-                
+
+                # 帧变化检测
+                if prev_frame is not None:
+                    frame_diff = cv2.absdiff(prev_frame, frame)
+                    gray_diff = cv2.cvtColor(frame_diff, cv2.COLOR_BGR2GRAY)
+                    threshold = 25
+                    _, thresh = cv2.threshold(gray_diff, threshold, 255, cv2.THRESH_BINARY)
+                    non_zero_count = np.count_nonzero(thresh)
+                    if non_zero_count < 3000:  # 可根据需求调整阈值
+                        if Frame_wending:
+                            if Frame_yuszhi > 3000:
+                                print(f"场景稳定中 (阈值: {non_zero_count})")
+                                Frame_yuszhi = 0
+                            else:
+                                Frame_yuszhi += 1
+                            time.sleep(0.05)  # 减少延迟以提高响应性
+                            continue  # 跳过当前循环
+                    else:
+                        Frame_wending = False
+                # 更新上一帧
+                prev_frame = frame.copy()
+
                 # 执行检测（使用设置的 img_size）
                 detections = detector.detect(frame, detector.img_size)
                 
@@ -439,8 +470,7 @@ def main():
                 frame_height, frame_width, _ = frame.shape
                 
                 # 处理检测结果
-                valid_targets = process_detections(frame, detections, detector,
-                                                   frame_height, frame_width, cvshow)
+                valid_targets = process_detections(frame, detections, detector,frame_height, frame_width, cvshow)
                 
                 # 过滤检测结果（保留最大 connection）
                 lianjie_targets = [t for t in valid_targets if t['class'] == 'connection']
@@ -478,15 +508,19 @@ def main():
                                         print(f"跳过已处理URL: {url}")
                                     else:
                                         print(f"处理新URL: {url}")
+                                        API_URL = "http://192.168.3.70:3000/api/receive"
+                                        TOKEN = "your_token_here"   # 请替换为实际token
+                                        ACCOUNT_IDS = ['1', '2', '3', '4', '5']         # 固定对账号5操作
+                                        result = claim_coupons(url,ACCOUNT_IDS,API_URL,TOKEN)
+                                        print(result)
                                         save_checked_url(url)
-                
                 # 更新帧计数
                 frame_count += 1
                 
                 # 每10秒打印性能统计
                 current_time = time.time()
                 elapsed = current_time - last_print_time
-                if elapsed >= 10.0:
+                if elapsed >= 200.0:
                     avg_fps = frame_count / elapsed
                     print(f"[性能] 过去 {elapsed:.1f} 秒处理了 {frame_count} 帧，平均 FPS: {avg_fps:.2f}")
                     frame_count = 0
