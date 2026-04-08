@@ -13,3 +13,8 @@ dist/
 
 # Misc
 .DS_Store
+
+# urls checked by the script
+checked_urls.txt*
+node_modules
+node_modules
